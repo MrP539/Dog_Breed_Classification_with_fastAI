@@ -1,3 +1,5 @@
+## conda environment : Machine_learning_AI_builders
+
 import os  # ใช้สำหรับการจัดการระบบไฟล์และไดเรกทอรี
 import shutil  # ใช้สำหรับการจัดการไฟล์และไดเรกทอรีอย่างละเอียด
 from glob import glob  # ใช้สำหรับการดึงรายการไฟล์จากการใช้ wildcard ในระบบไฟล์
@@ -16,8 +18,8 @@ import torch
 img_df = pd.DataFrame(glob("data/train/*.jpg"),columns=["path"]) # สร้าง DataFrame: สร้าง DataFrame img_df โดยใช้ข้อมูลจาก glob() และกำหนดชื่อคอลัมน์ "path" สำหรับที่อยู่ของไฟล์ภาพ
 
 img_df["id"] = img_df["path"].map(lambda x : os.path.basename(x).replace(".jpg",""))#map(function, iterable)// สร้างคอลัมน์ "id": ใช้ map() พร้อมกับ lambda function เพื่อสร้างคอลัมน์ "id" จากชื่อไฟล์ภาพที่ดึงมาจาก op.basename(x) และนำออก ".jpg" ด้วย .replace(".jpg", "")
-
-label_df = pd.read_csv(r"D:\machine_learning_AI_Builders\บท4\Classification\Dog_Breed_Classification\data\labels.csv")
+#img_df["id"] = img_df.apply(lambda x : os.path.basename(x.path).replace(".jpg",""),axis=1)
+label_df = pd.read_csv(r"D:\machine_learning_AI_Builders\บท4\Classification\Dog_Breed_Classification_with_fastAI\data\labels.csv")
 img_df = img_df.merge(label_df,on="id")
 
 ######################################################################### Create Data Set ##########################################################################################################
@@ -29,6 +31,7 @@ for _,r in img_df.iterrows(): #iterrows() ใน Pandas ใช้สำหรั
         os.makedirs(f"{loot_dir}/{r.breed}")
     shutil.copy(r["path"],f"{loot_dir}/{r.breed}")
 
+########################################################################## Create DataLoders   #######################################################################################################
 #สร้าง fields เพื่อกำหนด
 
 fields = fastai.vision.all.DataBlock(                                       #สิ่งที่ต้องกำหนดคือ Datablock
@@ -40,18 +43,22 @@ fields = fastai.vision.all.DataBlock(                                       #ส
     item_tfms=fastai.vision.all.RandomResizedCrop(224,min_scale=0.5),           #item_tfms เป็นการ transform ใน CPU ก่อนที่จะส่งไปยัง GPU ในที่นี่เราจะทำการย่อภาพก่อนที่จะส่งไปยัง GPU
     batch_tfms=fastai.vision.all.aug_transforms()                               #aug_transforms ซึ่งเป็นฟังก์ชันของ FastAI ในการทำให้ภาพมีความหลากหลายมากยิ่งขึ้น
 )
-########################################################################## Create DataLoders   #######################################################################################################
-
 
 dls = fields.dataloaders(loot_dir,device = torch.device('cuda' if torch.cuda.is_available() else 'cpu'),num_workers = 0, bs=64) #num_workers เป็น 0 เมื่อสร้าง DataLoader เพื่อหลีกเลี่ยงปัญหาที่เกิดจาก multiprocessing ใน Windows
 
-######################################################################### Traing ######################################################################################################################
+######################################################################### create learner ######################################################################################################################
 
 csv_logger = fastai.vision.all.CSVLogger("result.csv")
-learner = fastai.vision.all. vision_learner(dls,fastai.vision.all.resnet34,metrics=[fastai.vision.all.error_rate,fastai.vision.all.accuracy],cbs=csv_logger)
+learner = fastai.vision.all.vision_learner(dls,fastai.vision.all.resnet34,metrics=[fastai.vision.all.error_rate,fastai.vision.all.accuracy],cbs=csv_logger)
+
+######################################################################### find learing rate ########################################################################
 # prine(learner.lr_find()) หาค่า learning_rate ที่เหมาะสม
 # print(lr)
-learner.fine_tune(epochs=100,freeze_epochs=1,base_lr = 3e-3)
+
+#########################################################################  training ################################################################################
+
+learner.fine_tune(epochs=1,freeze_epochs=1,base_lr = 3e-3)
+
 learner.remove_cb(csv_logger)
 learner.export("Classifying_breeds.pkl")
 
